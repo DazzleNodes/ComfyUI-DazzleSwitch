@@ -6,6 +6,7 @@ with programmatic INT override for cascading workflows.
 """
 
 import logging
+import re
 
 _logger = logging.getLogger("DazzleSwitch")
 
@@ -25,14 +26,42 @@ class AnyType(str):
 any_type = AnyType("*")
 
 
+class FlexibleOptionalInputType(dict):
+    """Dict subclass that accepts any key as a valid optional input.
+
+    Tricks ComfyUI's validation into accepting dynamically-added inputs
+    (e.g., input_04, input_05, ...) that aren't declared in INPUT_TYPES().
+    When ComfyUI checks `if key in optional_inputs`, __contains__ returns True.
+    When it fetches the type with `optional_inputs[key]`, __getitem__ returns
+    the flexible type tuple.
+
+    Pattern credit: rgthree (used in Any Switch and other dynamic nodes).
+    """
+
+    def __init__(self, type, initial=None):
+        super().__init__()
+        self.type = type
+        if initial:
+            self.update(initial)
+
+    def __getitem__(self, key):
+        if key in self.keys():
+            return super().__getitem__(key)
+        return (self.type,)
+
+    def __contains__(self, key):
+        return True
+
+
 class DazzleSwitch:
     """Smart switch node — route any input via dropdown selection or INT override.
 
     Features:
-    - 5 optional typed-as-any inputs (input_01 through input_05)
+    - Dynamic input slots that grow/shrink based on connections (minimum 3)
     - Dropdown widget dynamically populated by JS with connected input names
     - INT select_override for programmatic cascading (0 = use dropdown)
     - Outputs: selected value + 1-based index of which input was selected
+    - Mixed type support: different types on different inputs (MODEL + IMAGE, etc.)
     """
 
     @classmethod
@@ -45,21 +74,19 @@ class DazzleSwitch:
                                "Options update automatically based on connections.",
                 }),
             },
-            "optional": {
+            "optional": FlexibleOptionalInputType(any_type, {
                 "select_override": ("INT", {
                     "default": 0,
                     "min": 0,
                     "max": 50,
                     "tooltip": "Programmatic override: 0 = use dropdown, "
-                               "1-5 = select input_01 through input_05. "
+                               "1+ = select that input number directly. "
                                "Enables cascading selection from upstream.",
                 }),
                 "input_01": (any_type, {}),
                 "input_02": (any_type, {}),
                 "input_03": (any_type, {}),
-                "input_04": (any_type, {}),
-                "input_05": (any_type, {}),
-            },
+            }),
             "hidden": {
                 "unique_id": "UNIQUE_ID",
             },
@@ -71,22 +98,37 @@ class DazzleSwitch:
     CATEGORY = "DazzleNodes"
     OUTPUT_NODE = False
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, select, **kwargs):
+        """Bypass server-side combo validation for the select widget.
+
+        The select dropdown is dynamically populated by JS with connected
+        input names. The server only sees the static ["(none connected)"]
+        list from INPUT_TYPES(), so any real selection would fail validation.
+        """
+        return True
+
+    # Compiled once — matches input_01 through input_99
+    _INPUT_RE = re.compile(r"^input_(\d{2})$")
+
     def switch(self, select="(none connected)", select_override=0,
                unique_id=None, **kwargs):
         """Route the selected input to output.
 
         Selection priority:
-        1. select_override > 0 → use input_{override:02d} if connected
-        2. select_override == 0 or override target not connected → use dropdown
-        3. Dropdown target not connected → first connected input (fallback)
-        4. Nothing connected → (None, 0)
+        1. select_override > 0 -> use input_{override:02d} if connected
+        2. select_override == 0 or override target not connected -> use dropdown
+        3. Dropdown target not connected -> first connected input (fallback)
+        4. Nothing connected -> (None, 0)
         """
         # Build dict of connected (non-None) inputs with their indices
+        # Dynamic: iterates all input_XX keys from kwargs, not a hardcoded range
         connected = {}
-        for i in range(1, 6):
-            key = f"input_{i:02d}"
-            if key in kwargs and kwargs[key] is not None:
-                connected[key] = (kwargs[key], i)
+        for key, value in kwargs.items():
+            m = self._INPUT_RE.match(key)
+            if m and value is not None:
+                idx = int(m.group(1))
+                connected[key] = (value, idx)
 
         if not connected:
             _logger.debug(f"[{unique_id}] No inputs connected, returning None")

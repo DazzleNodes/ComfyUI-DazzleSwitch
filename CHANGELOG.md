@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-alpha] - 2026-02-23
+
+### Added
+- Dynamic input expansion: slots grow when last input is connected, shrink when trailing slots disconnect (minimum 3)
+- `FlexibleOptionalInputType` for accepting undeclared dynamic inputs (input_04, input_05, ..., input_99)
+- Type detection via LiteGraph connection graph walking (follows through Reroute and chained DazzleSwitches)
+- Output type label shows detected type of selected input (e.g., "MODEL", "IMAGE" instead of "*")
+- Debounced stabilize cycle (64ms) prevents flicker during rapid connect/disconnect operations
+- Label watcher via Object.defineProperty for live dropdown updates on slot rename
+- `VALIDATE_INPUTS` bypass for server-side combo validation of dynamic dropdown values
+- `run_tests.py` test runner integrated with pre-push git hook
+- 36 one-off tests (18 new Phase 2 tests: FlexibleOptionalInputType, dynamic kwargs, regex edge cases, VALIDATE_INPUTS)
+- Example workflow: `examples/DazzleSwitch-Test.json`
+
+### Changed
+- Reduced initial input slots from 5 to 3 (dynamic expansion replaces fixed count)
+- `switch()` now uses regex-based kwargs iteration instead of hardcoded `range(1, 6)`
+- Dropdown preserves user selection when selected input is disconnected (no auto-fallback)
+- `onConnectionsChange` now triggers debounced stabilize instead of direct dropdown rebuild
+
+### Technical Details
+- Adapted rgthree patterns (FlexibleOptionalInputType, stabilize, graph walking) with mixed-type awareness
+- Input slots stay `*` always (mixed types supported, unlike rgthree which sets all to same type)
+- Only selected input's type is detected (not all inputs)
+- WeakMap-based per-node debounce timers (GC-friendly)
+- Graph walk: max 10 hops, visited set prevents infinite loops
+
 ## [0.1.0-alpha] - 2026-02-22
 
 ### Added

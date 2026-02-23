@@ -57,7 +57,7 @@ esac
 has_private_content=0
 for file in $(git diff --cached --name-only); do
     # Check against all private content patterns from BranchContext
-    if echo "$file" | grep -q -E "^.*.*/__private__.*|^.*.*/private_.*|^.*..*~|^.*.backup|^.*.bak|^.*.log|^.*.tmp|^.*~|^.env.*|^.env.local$|^.env.private$|^.repokit.json$|^CLAUDE.md$|^Clipboard Text.*|^convos/|^credentials/|^logs/|^logs/.*|^logs/.*.*/.*|^nul$|^private/|^private/claude/|^private/docs/|^private/notes/|^private/temp/|^revisions/|^revisions/.*|^revisions/.*.*/.*|^secrets/|^test-runs/|^test_runs/"; then
+    if echo "$file" | grep -q -E "^.*/__private__.*|^.*/private_.*|^.*\..*~$|^.*\.backup$|^.*\.bak$|^.*\.log$|^.*\.tmp$|^.*~$|^\.env.*|^\.env\.local$|^\.env\.private$|^\.repokit\.json$|^CLAUDE\.md$|^Clipboard Text.*|^convos/|^credentials/|^logs/|^logs/.*|^logs/.*/.*|^nul$|^private/|^private/claude/|^private/docs/|^private/notes/|^private/temp/|^revisions/|^revisions/.*|^revisions/.*/.*|^secrets/|^test-runs/|^test_runs/"; then
         if [ $has_private_content -eq 0 ]; then
             echo ""
             echo "❌ COMMIT BLOCKED - Private Content Protection"
