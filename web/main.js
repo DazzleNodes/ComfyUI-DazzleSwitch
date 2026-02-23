@@ -10,6 +10,7 @@
  * - Output type label showing detected type of selected input
  * - Serializing internal names to Python (not display labels)
  * - Workflow save/load with correct state
+ * - Slot reordering via right-click Move Up / Move Down (swap-and-rename)
  *
  * COMPATIBILITY NOTE:
  * Uses dynamic imports with auto-depth detection to work in both:
@@ -500,6 +501,96 @@ function drawActiveSlotHighlight(node, ctx, canvas) {
     ctx.restore();
 }
 
+// ─── Slot Reordering ─────────────────────────────────────────────────────────
+
+/**
+ * Get the array indices of all input_XX slots in node.inputs[].
+ * Excludes select_override and any other non-input slots.
+ *
+ * @param {object} node - ComfyUI node
+ * @returns {number[]} Array of indices into node.inputs[]
+ */
+function getInputXXIndices(node) {
+    const indices = [];
+    if (!node.inputs) return indices;
+    for (let i = 0; i < node.inputs.length; i++) {
+        if (node.inputs[i].name && INPUT_SLOT_RE.test(node.inputs[i].name)) {
+            indices.push(i);
+        }
+    }
+    return indices;
+}
+
+
+/**
+ * Move an input slot from one position to another in node.inputs[].
+ *
+ * Uses the swap-and-rename approach:
+ * 1. Splice the array (move, not swap)
+ * 2. Rename all input_XX slots sequentially by new position
+ * 3. Re-key the label cache to match new names
+ * 4. Patch graph.links[].target_slot for all connected inputs
+ * 5. Re-trigger stabilize (rebuilds dropdown, type detection, etc.)
+ *
+ * @param {object} node - ComfyUI node
+ * @param {number} fromIndex - Current index in node.inputs[]
+ * @param {number} toIndex - Target index in node.inputs[]
+ */
+function moveInputSlot(node, fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    if (!node.inputs || !node.graph) return;
+
+    // 1. Cancel any pending stabilize (prevent it from undoing our reorder)
+    const existing = _stabilizeTimers.get(node);
+    if (existing) {
+        clearTimeout(existing);
+        _stabilizeTimers.delete(node);
+    }
+
+    // 2. Splice the inputs array (move the slot object to new position)
+    const inputs = node.inputs;
+    inputs.splice(toIndex, 0, inputs.splice(fromIndex, 1)[0]);
+
+    // 3. Rename all input_XX slots sequentially by their new position
+    let inputNum = 1;
+    const nameRemap = {};  // oldName → newName
+    for (let i = 0; i < inputs.length; i++) {
+        if (!INPUT_SLOT_RE.test(inputs[i].name)) continue;
+
+        const oldName = inputs[i].name;
+        const newName = `input_${String(inputNum).padStart(2, '0')}`;
+        if (oldName !== newName) {
+            nameRemap[oldName] = newName;
+            inputs[i].name = newName;
+        }
+        inputNum++;
+    }
+
+    // 4. Re-key label cache to match renamed slots
+    if (node._dsLabelCache && Object.keys(nameRemap).length > 0) {
+        const newCache = {};
+        for (const [key, label] of Object.entries(node._dsLabelCache)) {
+            newCache[nameRemap[key] || key] = label;
+        }
+        node._dsLabelCache = newCache;
+    }
+
+    // 5. Patch link target_slot indices for ALL inputs
+    //    (rgthree-proven pattern: walk inputs, set target_slot = current index)
+    for (let i = 0; i < inputs.length; i++) {
+        if (inputs[i].link != null) {
+            const link = node.graph.links[inputs[i].link];
+            if (link) {
+                link.target_slot = i;
+            }
+        }
+    }
+
+    // 6. Stabilize: rebuilds dropdown, type detection, label watchers
+    stabilize(node);
+}
+
+
 // ─── Node Setup ──────────────────────────────────────────────────────────────
 
 /**
@@ -577,6 +668,40 @@ function setupDazzleSwitchNode(node, app) {
         drawActiveSlotHighlight(this, ctx, canvas);
     };
 
+    // Slot reordering context menu (Move Up / Move Down)
+    const origGetSlotMenuOptions = node.getSlotMenuOptions;
+    node.getSlotMenuOptions = function(slot) {
+        const options = origGetSlotMenuOptions?.call(this, slot) || [];
+
+        // Only add reorder options for input_XX slots
+        if (slot.input && INPUT_SLOT_RE.test(slot.input.name)) {
+            const currentIndex = slot.slot;
+            const inputIndices = getInputXXIndices(this);
+            const posInRange = inputIndices.indexOf(currentIndex);
+
+            if (posInRange >= 0) {
+                if (options.length > 0) options.push(null);  // separator
+
+                options.push({
+                    content: "\u2B06\uFE0F Move Up",
+                    disabled: posInRange <= 0,
+                    callback: () => {
+                        moveInputSlot(this, currentIndex, inputIndices[posInRange - 1]);
+                    }
+                });
+                options.push({
+                    content: "\u2B07\uFE0F Move Down",
+                    disabled: posInRange >= inputIndices.length - 1,
+                    callback: () => {
+                        moveInputSlot(this, currentIndex, inputIndices[posInRange + 1]);
+                    }
+                });
+            }
+        }
+
+        return options;
+    };
+
     // Initial stabilize (delayed to allow connections to be established)
     setTimeout(() => {
         stabilize(node);
@@ -601,5 +726,5 @@ function setupDazzleSwitchNode(node, app) {
         }
     });
 
-    console.log("[DazzleSwitch] JavaScript extension loaded (Phase 3: label cache + active slot highlight)");
+    console.log("[DazzleSwitch] JavaScript extension loaded (Phase 4: slot reordering)");
 })();

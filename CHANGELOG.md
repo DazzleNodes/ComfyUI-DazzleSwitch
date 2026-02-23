@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1-alpha] - 2026-02-23
+
+### Added
+- Slot reordering: right-click input slots → Move Up / Move Down to rearrange positions
+- Connections, labels, and override indices follow the slot during reorder (swap-and-rename)
+- README: cascading selection guide explaining `selected_index` → `select_override` workflow
+- README: slot alignment walkthrough with before/after examples
+- Link to [#7](https://github.com/DazzleNodes/ComfyUI-DazzleSwitch/issues/7) for future named channels roadmap
+
+### Technical Details
+- `moveInputSlot()`: array splice + sequential rename + label cache re-key + link patching
+- `getSlotMenuOptions` override adds context menu items for input_XX slots only
+- Link integrity maintained via rgthree-proven `target_slot` patching pattern
+- Stabilize cycle re-triggered after reorder (dropdown, type detection, label watchers rebuild)
+
 ## [0.3.0-alpha] - 2026-02-23
 
 ### Added

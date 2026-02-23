@@ -23,6 +23,7 @@ DazzleSwitch routes any ComfyUI data type through a user-selected dropdown inste
 | Type detection | None | Shows detected type of selected input |
 | Programmatic control | None | INT override input |
 | Chaining | Not possible | Chain INT to drive multiple switches |
+| Slot reordering | Not supported | Right-click Move Up/Down |
 | Active indicator | None | Green tint on selected slot |
 
 ## Features
@@ -34,6 +35,7 @@ DazzleSwitch routes any ComfyUI data type through a user-selected dropdown inste
 - **Named Inputs**: Rename input slots (right-click → Rename) and see names in the dropdown
 - **Label Cache**: Slot labels persist across disconnect/reconnect cycles — no need to re-rename
 - **Active Slot Highlight**: Semi-transparent green tint shows which input is currently selected
+- **Slot Reordering**: Right-click → Move Up/Down to rearrange input positions for [cascading alignment](https://github.com/DazzleNodes/ComfyUI-DazzleSwitch/issues/7)
 - **INT Override**: `select_override` input (0=dropdown, 1+=programmatic selection)
 - **Cascading**: Wire one INT value to multiple DazzleSwitch nodes for single-edit cascade
 - **DazzleNodes Compatible**: Works standalone or as part of the [DazzleNodes](https://github.com/DazzleNodes) collection
@@ -96,12 +98,45 @@ Connect two models/images/LoRAs and pick from the dropdown:
 ```
 
 #### Cascading Selection
-Wire one INT to drive multiple switches simultaneously:
+Wire one switch's `selected_index` to another's `select_override` so they change together:
 ```
-[INT Widget: 2] → select_override → [DazzleSwitch A] (selects input_02)
-                → select_override → [DazzleSwitch B] (selects input_02)
-                → select_override → [DazzleSwitch C] (selects input_02)
+[DazzleSwitch A] ─ selected_index → select_override ─ [DazzleSwitch B]
 ```
+
+When you pick "Style B" (position 2) on Switch A, Switch B automatically selects its position 2 as well. This lets you control multiple switches from a single dropdown.
+
+You can also drive multiple switches from a plain INT widget:
+```
+[INT Widget: 2] → select_override → [DazzleSwitch A] (selects position 2)
+                → select_override → [DazzleSwitch B] (selects position 2)
+                → select_override → [DazzleSwitch C] (selects position 2)
+```
+
+#### Aligning Positions Across Chained Switches
+
+When chained switches have different inputs, the same position number may mean different things:
+
+```
+Switch A:                        Switch B:
+  1: "Reference Image"            1: "Toggle"         ← wrong match!
+  2: "Alt Image"                  2: "Inpaint Mask"
+                                  3: "Flux Prompt"
+                                  4: "Reference Image" ← this is what you want at position 1
+```
+
+To fix this, **right-click any input slot** and use **Move Up / Move Down** to reorder it. Moving "Reference Image" to position 1 on Switch B makes the cascade work correctly:
+
+```
+Switch B (after reorder):
+  1: "Reference Image"  ← now matches Switch A position 1
+  2: "Toggle"
+  3: "Inpaint Mask"
+  4: "Flux Prompt"
+```
+
+Connections, labels, and override indices all follow the slot when it moves — no need to disconnect and reconnect noodles.
+
+> **Future: Named Channels** — Slot reordering is a manual workaround. A future release will add string-based cascading (`selected_key` / `select_key_override`) so switches can match by label name instead of position, eliminating the need to align slot order entirely. See [#7](https://github.com/DazzleNodes/ComfyUI-DazzleSwitch/issues/7) for the design discussion.
 
 #### Dynamic Multi-Input Routing
 Connect as many inputs as you need — the node grows automatically:

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ComfyUI-DazzleSwitch",
-    version="0.3.0",
+    version="0.3.1",
     description="Smart switch node with dropdown-based input selection - Part of DazzleNodes",
     author="Dustin",
     author_email="6962246+djdarcy@users.noreply.github.com",
