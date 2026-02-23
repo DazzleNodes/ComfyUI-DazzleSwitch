@@ -1,0 +1,63 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Current File with Arguments",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                // Add your arguments here, or use VS Code's input picker at runtime
+                "${command:pickArgs}"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "ComfyUI: Debug This Node",
+            "type": "python",
+            "request": "launch",
+            "program": "${env:COMFYUI_PATH}/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${env:COMFYUI_PATH}",
+            "env": {
+                "DS_DEBUG": "1"
+            },
+            "args": [
+                // Common ComfyUI arguments (uncomment as needed):
+                // "--listen", "127.0.0.1",
+                // "--port", "8188",
+                // "--auto-launch",
+                // "--disable-xformers",
+            ]
+        },
+        {
+            "name": "ComfyUI: Attach to Running",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "justMyCode": false,
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "${env:COMFYUI_PATH}/custom_nodes/ComfyUI-DazzleSwitch"
+                }
+            ]
+        }
+    ]
+}
