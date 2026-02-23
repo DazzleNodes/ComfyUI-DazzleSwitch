@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-alpha] - 2026-02-23
+
+### Added
+- Label cache: slot labels (user renames) preserved across disconnect/reconnect cycles
+- Active slot highlight: semi-transparent green tint on the currently selected input slot
+- DazzleNodes collection integration: loads via DazzleNodes or standalone with dual-loading guard
+- Display name updated to "Dazzle Switch (DazzleNodes)" for searchability in node browser
+
+### Changed
+- Visual highlight uses `onDrawForeground` with `getConnectionPos()` for accurate slot positioning
+- Label cache stores/restores unconditionally (no type gating)
+
+### Technical Details
+- `node._dsLabelCache` dictionary caches labels before slot removal, restores on recreation
+- Active highlight: `rgba(91, 189, 91, 0.15)` fill, auto-hides when collapsed or zoomed out (<0.5x)
+- DazzleNodes web sync: copies JS files from `nodes/*/web/` to `DazzleNodes/web/` with hash-based cache
+- Pre-commit hook regex patterns fixed (escaped dots, anchored patterns)
+
 ## [0.2.0-alpha] - 2026-02-23
 
 ### Added

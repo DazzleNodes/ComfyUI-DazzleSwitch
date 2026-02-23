@@ -137,6 +137,11 @@ function removeUnusedInputsFromEnd(node) {
             break;
         }
 
+        // Cache label before removal so it can be restored on reconnect
+        if (input.label && node._dsLabelCache) {
+            node._dsLabelCache[input.name] = input.label;
+        }
+
         node.removeInput(i);
     }
 }
@@ -165,6 +170,12 @@ function addBufferInputIfNeeded(node) {
         const nextNum = getHighestInputNumber(node) + 1;
         const name = `input_${String(nextNum).padStart(2, '0')}`;
         node.addInput(name, "*");
+
+        // Restore cached label if this slot was previously named
+        if (node._dsLabelCache && node._dsLabelCache[name]) {
+            const newInput = node.inputs[node.inputs.length - 1];
+            newInput.label = node._dsLabelCache[name];
+        }
     }
 }
 
@@ -431,6 +442,64 @@ function stabilize(node) {
     node.setDirtyCanvas(true, true);
 }
 
+// ─── Active Slot Highlight ───────────────────────────────────────────────────
+
+/** Semi-transparent background tint for the active (selected) input slot. */
+const ACTIVE_SLOT_TINT = "rgba(91, 189, 91, 0.15)";
+
+/**
+ * Find the slot index of the currently selected input.
+ *
+ * @param {object} node - ComfyUI node
+ * @returns {number} Slot index in node.inputs, or -1 if not found
+ */
+function getSelectedSlotIndex(node) {
+    const selectWidget = node.widgets?.find(w => w.name === 'select');
+    if (!selectWidget || selectWidget.value === '(none connected)') return -1;
+
+    const nameMap = node._dsNameMap || {};
+    const internalName = nameMap[selectWidget.value] || selectWidget.value;
+
+    if (!node.inputs) return -1;
+    for (let i = 0; i < node.inputs.length; i++) {
+        if (node.inputs[i].name === internalName) return i;
+    }
+    return -1;
+}
+
+/**
+ * Draw a subtle border highlight on the selected input slot.
+ * Called from onDrawForeground — coordinates are node-relative.
+ * Uses LiteGraph's getConnectionPos() for accurate slot positioning.
+ *
+ * @param {object} node - ComfyUI node
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {object} canvas - LiteGraph canvas
+ */
+function drawActiveSlotHighlight(node, ctx, canvas) {
+    // Skip when collapsed or zoomed out too far
+    if (node.flags?.collapsed) return;
+    if (canvas?.ds?.scale < 0.5) return;
+
+    const slotIndex = getSelectedSlotIndex(node);
+    if (slotIndex < 0) return;
+
+    // Use LiteGraph's own slot positioning (returns absolute coords)
+    const pos = new Float32Array(2);
+    node.getConnectionPos(true, slotIndex, pos);
+
+    // Convert absolute → node-relative for onDrawForeground context
+    const slotCenterY = pos[1] - node.pos[1];
+    const slotHeight = LiteGraph.NODE_SLOT_HEIGHT || 20;
+
+    ctx.save();
+    ctx.fillStyle = ACTIVE_SLOT_TINT;
+    ctx.beginPath();
+    ctx.roundRect(0, slotCenterY - slotHeight * 0.5, node.size[0], slotHeight, 3);
+    ctx.fill();
+    ctx.restore();
+}
+
 // ─── Node Setup ──────────────────────────────────────────────────────────────
 
 /**
@@ -449,8 +518,9 @@ function setupDazzleSwitchNode(node, app) {
         return;
     }
 
-    // Initialize name map
+    // Initialize name map and label cache
     node._dsNameMap = {};
+    node._dsLabelCache = {};
 
     // Override serializeValue to send internal names to Python
     selectWidget.serializeValue = function() {
@@ -498,6 +568,15 @@ function setupDazzleSwitchNode(node, app) {
         node.setDirtyCanvas(true, true);
     };
 
+    // Hook into onDrawForeground for active slot highlight
+    const origOnDrawForeground = node.onDrawForeground;
+    node.onDrawForeground = function(ctx, canvas) {
+        if (origOnDrawForeground) {
+            origOnDrawForeground.call(this, ctx, canvas);
+        }
+        drawActiveSlotHighlight(this, ctx, canvas);
+    };
+
     // Initial stabilize (delayed to allow connections to be established)
     setTimeout(() => {
         stabilize(node);
@@ -522,5 +601,5 @@ function setupDazzleSwitchNode(node, app) {
         }
     });
 
-    console.log("[DazzleSwitch] JavaScript extension loaded (Phase 2: dynamic inputs + type detection)");
+    console.log("[DazzleSwitch] JavaScript extension loaded (Phase 3: label cache + active slot highlight)");
 })();

@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-dazzle-switch"
 description = "Smart switch node for ComfyUI with dropdown-based input selection and INT override for cascading workflows. Route any data type through a named dropdown instead of moving noodles."
-version = "0.1.0"
+version = "0.3.0"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
@@ -28,7 +28,7 @@ Documentation = "https://github.com/DazzleNodes/ComfyUI-DazzleSwitch#readme"
 # See: https://docs.comfy.org/registry/publishing
 [tool.comfy]
 PublisherId = "djdarcy"
-DisplayName = "Dazzle Switch"
+DisplayName = "Dazzle Switch (DazzleNodes)"
 Icon = ""
 
 # Publishing: Update version in this file and push to main branch

@@ -238,7 +238,7 @@ def test_node_registration_mappings():
     assert "DazzleSwitch" in NODE_CLASS_MAPPINGS
     assert NODE_CLASS_MAPPINGS["DazzleSwitch"] is DazzleSwitch
     assert "DazzleSwitch" in NODE_DISPLAY_NAME_MAPPINGS
-    assert NODE_DISPLAY_NAME_MAPPINGS["DazzleSwitch"] == "Dazzle Switch"
+    assert NODE_DISPLAY_NAME_MAPPINGS["DazzleSwitch"] == "Dazzle Switch (DazzleNodes)"
     print("  PASS: Registration mappings are correct")
 
 

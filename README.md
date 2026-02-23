@@ -16,20 +16,27 @@ DazzleSwitch routes any ComfyUI data type through a user-selected dropdown inste
 | | rgthree Any Switch | DazzleSwitch |
 |---|---|---|
 | Selection | First non-None (implicit) | Dropdown widget (explicit) |
+| Input count | Fixed slots | Dynamic (grows on connect, shrinks on disconnect) |
 | Input order matters | Yes (top wins) | No (user picks) |
 | Renaming slots | Not used | Core feature (labels in dropdown) |
+| Label persistence | N/A | Labels survive disconnect/reconnect |
+| Type detection | None | Shows detected type of selected input |
 | Programmatic control | None | INT override input |
 | Chaining | Not possible | Chain INT to drive multiple switches |
+| Active indicator | None | Green tint on selected slot |
 
 ## Features
 
 - **Dropdown Selection**: Choose which input to route via a labeled dropdown
+- **Dynamic Inputs**: Slots grow when you connect the last one, shrink when trailing slots disconnect (minimum 3)
 - **Type-Agnostic**: Works with MODEL, CLIP, LATENT, IMAGE, MASK, STRING, or any other type
+- **Type Detection**: Output label shows the detected type of the selected input (e.g., "MODEL" instead of "*")
 - **Named Inputs**: Rename input slots (right-click → Rename) and see names in the dropdown
-- **INT Override**: `select_override` input (0=dropdown, 1-5=programmatic selection)
+- **Label Cache**: Slot labels persist across disconnect/reconnect cycles — no need to re-rename
+- **Active Slot Highlight**: Semi-transparent green tint shows which input is currently selected
+- **INT Override**: `select_override` input (0=dropdown, 1+=programmatic selection)
 - **Cascading**: Wire one INT value to multiple DazzleSwitch nodes for single-edit cascade
-- **Auto-Fallback**: If selected input disconnects, auto-selects first remaining connected
-- **DazzleNodes Compatible**: Works standalone or as part of the DazzleNodes collection
+- **DazzleNodes Compatible**: Works standalone or as part of the [DazzleNodes](https://github.com/DazzleNodes) collection
 
 ## Prerequisites
 
@@ -61,22 +68,21 @@ Then restart ComfyUI or use **Manager → Refresh Node Definitions**.
 | Input | Type | Required | Description |
 |-------|------|----------|-------------|
 | select | Dropdown | Yes | Which connected input to route to output |
-| select_override | INT | No | Programmatic override (0=dropdown, 1-5=select input) |
-| input_01–input_05 | Any | No | Data inputs — connect any type |
+| select_override | INT | No | Programmatic override (0=dropdown, 1+=select input by number) |
+| input_01, input_02, ... | Any | No | Data inputs — connect any type. New slots appear as you connect. |
 
 ### Outputs
 
 | Output | Type | Description |
 |--------|------|-------------|
-| output | Any | The selected input value |
+| output | Any | The selected input value (type label shows detected type) |
 | selected_index | INT | 1-based index of which input was selected (0 if none) |
 
 ### Selection Priority
 
 1. **INT override > 0**: Uses `input_{override}` if connected
 2. **Override fails or is 0**: Uses dropdown widget selection
-3. **Dropdown target disconnected**: Falls back to first connected input
-4. **Nothing connected**: Returns `(None, 0)`
+3. **Nothing connected**: Returns `(None, 0)`
 
 ### Common Use Cases
 
@@ -97,12 +103,29 @@ Wire one INT to drive multiple switches simultaneously:
                 → select_override → [DazzleSwitch C] (selects input_02)
 ```
 
+#### Dynamic Multi-Input Routing
+Connect as many inputs as you need — the node grows automatically:
+```
+[LoRA 1] → input_01 ("Style A")
+[LoRA 2] → input_02 ("Style B")
+[LoRA 3] → input_03 ("Style C")    ← connecting here creates input_04
+[LoRA 4] → input_04 ("Style D")    ← connecting here creates input_05
+```
+
 ## Debug Logging
 
 ```bash
 # Enable debug output
 DS_DEBUG=1 python main.py
 ```
+
+## Documentation
+
+Detailed documentation is available in the [`docs/`](docs/) folder:
+
+- [Architecture](docs/architecture.md) — Node design, JS extension, Python backend, data flow
+- [Type Detection](docs/type-detection.md) — Graph walking algorithm for connection type inference
+- [DazzleNodes Integration](docs/dazzlenodes-integration.md) — Dual loading, web sync, development setup
 
 ## Development
 
@@ -122,12 +145,7 @@ ln -s /path/to/ComfyUI-DazzleSwitch ComfyUI-DazzleSwitch
 
 ## Contributing
 
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Test changes in ComfyUI
-4. Submit a pull request
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR guidelines.
 
 Like the project?
 
