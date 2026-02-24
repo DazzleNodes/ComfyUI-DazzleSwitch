@@ -16,8 +16,9 @@ DazzleSwitch routes any ComfyUI data type through a user-selected dropdown inste
 | | rgthree Any Switch | DazzleSwitch |
 |---|---|---|
 | Selection | First non-None (implicit) | Dropdown widget (explicit) |
-| Input count | Fixed slots | Dynamic (grows on connect, shrinks on disconnect) |
-| Input order matters | Yes (top wins) | No (user picks) |
+| Fallback behavior | Always top-down priority | Configurable: priority / strict / sequential |
+| Input count | Dynamic (starts 5, min 4) | Dynamic (starts 3, min 3) |
+| Input order matters | Yes (top wins) | Depends on mode (user picks in strict) |
 | Renaming slots | Not used | Core feature (labels in dropdown) |
 | Label persistence | N/A | Labels survive disconnect/reconnect |
 | Type detection | None | Shows detected type of selected input |
@@ -28,7 +29,8 @@ DazzleSwitch routes any ComfyUI data type through a user-selected dropdown inste
 
 ## Features
 
-- **Dropdown Selection**: Choose which input to route via a labeled dropdown
+- **Dropdown Selection**: Choose which input to route via a labeled dropdown, or select `(none)` to let mode decide
+- **Fallback Modes**: Configurable behavior when selected input is unavailable — priority (rgthree-style), strict (no fallback), or sequential (next slot)
 - **Dynamic Inputs**: Slots grow when you connect the last one, shrink when trailing slots disconnect (minimum 3)
 - **Type-Agnostic**: Works with MODEL, CLIP, LATENT, IMAGE, MASK, STRING, or any other type
 - **Type Detection**: Output label shows the detected type of the selected input (e.g., "MODEL" instead of "*")
@@ -69,7 +71,8 @@ Then restart ComfyUI or use **Manager → Refresh Node Definitions**.
 
 | Input | Type | Required | Description |
 |-------|------|----------|-------------|
-| select | Dropdown | Yes | Which connected input to route to output |
+| select | Dropdown | Yes | Which connected input to route. Select `(none)` to let mode decide. |
+| mode | Dropdown | Yes | Fallback behavior: priority, strict, or sequential |
 | select_override | INT | No | Programmatic override (0=dropdown, 1+=select input by number) |
 | input_01, input_02, ... | Any | No | Data inputs — connect any type. New slots appear as you connect. |
 
@@ -80,11 +83,34 @@ Then restart ComfyUI or use **Manager → Refresh Node Definitions**.
 | output | Any | The selected input value (type label shows detected type) |
 | selected_index | INT | 1-based index of which input was selected (0 if none) |
 
-### Selection Priority
+### Resolution Chain
 
-1. **INT override > 0**: Uses `input_{override}` if connected
-2. **Override fails or is 0**: Uses dropdown widget selection
-3. **Nothing connected**: Returns `(None, 0)`
+1. **INT override > 0**: Try `input_{override}` if connected
+2. **Dropdown selection** (unless `(none)`): Try the dropdown-selected input
+3. **Mode fallback**: Apply the chosen mode when steps 1-2 miss
+
+### Fallback Modes
+
+When the selected input is unavailable, the **mode** widget determines what happens next:
+
+| Mode | Behavior | Use case |
+|------|----------|----------|
+| **priority** | First non-None from top (input_01 down) | rgthree-style "top wins" |
+| **strict** | No fallback — returns (None, 0) | Explicit control, no surprises |
+| **sequential** | Next slot after requested, wrapping around | Round-robin / ordered cycling |
+
+### The (none) Option
+
+The dropdown always includes a `(none)` option. Selecting it tells the node: "I don't have a preference — let the mode decide." This skips step 2 of the resolution chain entirely.
+
+| Dropdown | Mode | Result |
+|----------|------|--------|
+| `(none)` | priority | First non-None from top (true rgthree behavior) |
+| `(none)` | strict | Override only — nothing else |
+| `(none)` | sequential | Scan from top, first non-None |
+| input_XX | priority | Try input_XX, then first from top |
+| input_XX | strict | Try input_XX, then nothing |
+| input_XX | sequential | Try input_XX, then next slot down |
 
 ### Common Use Cases
 

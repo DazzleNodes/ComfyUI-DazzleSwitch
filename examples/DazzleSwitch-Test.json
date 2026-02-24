@@ -1,8 +1,8 @@
 {
   "id": "2dffc421-bf9e-4c75-b3d8-917014f29bb9",
   "revision": 0,
-  "last_node_id": 12,
-  "last_link_id": 12,
+  "last_node_id": 13,
+  "last_link_id": 20,
   "nodes": [
     {
       "id": 6,
@@ -38,7 +38,7 @@
         }
       },
       "widgets_values": [
-        "1"
+        "2"
       ]
     },
     {
@@ -75,7 +75,7 @@
         }
       },
       "widgets_values": [
-        "5225"
+        "2525"
       ]
     },
     {
@@ -162,79 +162,6 @@
       "bgcolor": "#000"
     },
     {
-      "id": 12,
-      "type": "Reroute",
-      "pos": [
-        1013.6047883064331,
-        -710.3349389699066
-      ],
-      "size": [
-        75,
-        26
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "",
-          "type": "*",
-          "link": 12
-        }
-      ],
-      "outputs": [
-        {
-          "name": "",
-          "type": "INT",
-          "links": [
-            11
-          ]
-        }
-      ],
-      "properties": {
-        "showOutputText": false,
-        "horizontal": false
-      }
-    },
-    {
-      "id": 7,
-      "type": "PrimitiveFloat",
-      "pos": [
-        799.6901201076469,
-        -422.1250662002733
-      ],
-      "size": [
-        270,
-        58
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "FLOAT",
-          "type": "FLOAT",
-          "links": [
-            8
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.14.1",
-        "Node name for S&R": "PrimitiveFloat",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.1"
-        }
-      },
-      "widgets_values": [
-        2.5
-      ]
-    },
-    {
       "id": 11,
       "type": "LoadImage",
       "pos": [
@@ -246,7 +173,7 @@
         314
       ],
       "flags": {},
-      "order": 2,
+      "order": 1,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -279,45 +206,6 @@
       ]
     },
     {
-      "id": 3,
-      "type": "PrimitiveInt",
-      "pos": [
-        800.7111847138682,
-        -559.5009162599235
-      ],
-      "size": [
-        270,
-        82
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "INT",
-          "type": "INT",
-          "links": [
-            3
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.14.1",
-        "Node name for S&R": "PrimitiveInt",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.1"
-        }
-      },
-      "widgets_values": [
-        2552,
-        "fixed"
-      ]
-    },
-    {
       "id": 8,
       "type": "PrimitiveInt",
       "pos": [
@@ -329,7 +217,7 @@
         82
       ],
       "flags": {},
-      "order": 4,
+      "order": 2,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -357,15 +245,130 @@
       ]
     },
     {
-      "id": 4,
-      "type": "DazzleSwitch",
+      "id": 7,
+      "type": "PrimitiveFloat",
       "pos": [
-        1168.4553866418476,
-        -842.2186290818452
+        799.6901201076469,
+        -422.1250662002733
       ],
       "size": [
         270,
-        182
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.14.1",
+        "Node name for S&R": "PrimitiveFloat",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.1"
+        }
+      },
+      "widgets_values": [
+        2.5
+      ]
+    },
+    {
+      "id": 12,
+      "type": "Reroute",
+      "pos": [
+        1013.6047883064331,
+        -710.3349389699066
+      ],
+      "size": [
+        75,
+        26
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "",
+          "type": "*",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "INT",
+          "links": [
+            19
+          ]
+        }
+      ],
+      "properties": {
+        "showOutputText": false,
+        "horizontal": false,
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "PrimitiveInt",
+      "pos": [
+        803.3085873112707,
+        -569.2411760001813
+      ],
+      "size": [
+        270,
+        82
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.14.1",
+        "Node name for S&R": "PrimitiveInt",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.1"
+        }
+      },
+      "widgets_values": [
+        2552,
+        "fixed"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "DazzleSwitch",
+      "pos": [
+        1185.987854174311,
+        -853.9069407701543
+      ],
+      "size": [
+        235.5650390625,
+        206
       ],
       "flags": {},
       "order": 6,
@@ -383,20 +386,20 @@
           "name": "input_02",
           "shape": 7,
           "type": "*",
-          "link": 11
+          "link": 19
         },
         {
           "label": "another-int",
           "name": "input_03",
           "shape": 7,
           "type": "*",
-          "link": 3
+          "link": null
         },
         {
           "label": "float",
           "name": "input_04",
           "type": "*",
-          "link": 8
+          "link": 13
         },
         {
           "label": "image",
@@ -412,9 +415,9 @@
       ],
       "outputs": [
         {
-          "label": "INT",
+          "label": "output",
           "name": "output",
-          "type": "INT",
+          "type": "*",
           "links": [
             4,
             10
@@ -429,9 +432,10 @@
         }
       ],
       "properties": {
-        "aux_id": "DazzleNodes/ComfyUI-DazzleSwitch",
+        "cnr_id": "comfyui-dazzlenodes",
         "ver": "aadc1c02f7614b420504bce1e6336e96af14436c",
         "Node name for S&R": "DazzleSwitch",
+        "aux_id": "DazzleNodes/ComfyUI-DazzleSwitch",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -439,8 +443,9 @@
         }
       },
       "widgets_values": [
-        "SEED",
-        0
+        "(none)",
+        "sequential",
+        3
       ]
     }
   ],
@@ -451,14 +456,6 @@
       0,
       4,
       0,
-      "INT"
-    ],
-    [
-      3,
-      3,
-      0,
-      4,
-      2,
       "INT"
     ],
     [
@@ -478,14 +475,6 @@
       "INT"
     ],
     [
-      8,
-      7,
-      0,
-      4,
-      3,
-      "FLOAT"
-    ],
-    [
       9,
       11,
       0,
@@ -502,19 +491,27 @@
       "IMAGE"
     ],
     [
-      11,
-      12,
-      0,
-      4,
-      1,
-      "*"
-    ],
-    [
       12,
       8,
       0,
       12,
       0,
+      "INT"
+    ],
+    [
+      13,
+      7,
+      0,
+      4,
+      3,
+      "FLOAT"
+    ],
+    [
+      19,
+      12,
+      0,
+      4,
+      1,
       "INT"
     ]
   ],
@@ -525,13 +522,13 @@
     "ue_links": [],
     "links_added_by_ue": [],
     "ds": {
-      "scale": 1.127357000000263,
+      "scale": 0.7700000000001797,
       "offset": [
-        -172.10837668441238,
-        1074.0174281901848
+        -608.225995149446,
+        1104.5978477023634
       ]
     },
-    "frontendVersion": "1.39.14",
+    "frontendVersion": "1.39.16",
     "VHS_latentpreview": false,
     "VHS_latentpreviewrate": 0,
     "VHS_MetadataImage": true,

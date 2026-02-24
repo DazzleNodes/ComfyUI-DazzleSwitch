@@ -64,23 +64,39 @@ class DazzleSwitch:
     - Mixed type support: different types on different inputs (MODEL + IMAGE, etc.)
     """
 
+    # Fallback modes — determines behavior when the selected input is unavailable
+    MODES = ["priority", "strict", "sequential"]
+
+    # Special dropdown values that bypass input selection
+    NONE_SELECTION = "(none)"
+    NO_CONNECTIONS = "(none connected)"
+
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "select": (["(none connected)"], {
-                    "default": "(none connected)",
+                "select": ([cls.NO_CONNECTIONS], {
+                    "default": cls.NO_CONNECTIONS,
                     "tooltip": "Choose which connected input to route to output. "
+                               "Select (none) to skip dropdown and let mode decide. "
                                "Options update automatically based on connections.",
+                }),
+                "mode": (cls.MODES, {
+                    "default": "priority",
+                    "tooltip": "Fallback when selected input is unavailable. "
+                               "priority: first non-empty from top (rgthree-style). "
+                               "strict: selected only, no fallback. "
+                               "sequential: next slot down, wrapping around.",
                 }),
             },
             "optional": FlexibleOptionalInputType(any_type, {
                 "select_override": ("INT", {
                     "default": 0,
-                    "min": 0,
+                    "min": -50,
                     "max": 50,
                     "tooltip": "Programmatic override: 0 = use dropdown, "
-                               "1+ = select that input number directly. "
+                               "1+ = select that input number directly, "
+                               "-1 = last connected, -2 = second-to-last, etc. "
                                "Enables cascading selection from upstream.",
                 }),
                 "input_01": (any_type, {}),
@@ -111,18 +127,38 @@ class DazzleSwitch:
     # Compiled once — matches input_01 through input_99
     _INPUT_RE = re.compile(r"^input_(\d{2})$")
 
-    def switch(self, select="(none connected)", select_override=0,
-               unique_id=None, **kwargs):
+    def _build_full_slot_range(self, connected, requested):
+        """Build sorted list of all slot positions from 1 to max(connected, requested).
+
+        Includes gap positions where slots exist but are disconnected.
+        Used by sequential mode to scan forward through the full slot range,
+        since ComfyUI omits disconnected inputs from kwargs entirely.
+        """
+        max_slot = 0
+        for key in connected:
+            m = self._INPUT_RE.match(key)
+            if m:
+                max_slot = max(max_slot, int(m.group(1)))
+        if requested is not None:
+            m = self._INPUT_RE.match(requested)
+            if m:
+                max_slot = max(max_slot, int(m.group(1)))
+        return [f"input_{i:02d}" for i in range(1, max_slot + 1)]
+
+    def switch(self, select="(none connected)", mode="priority",
+               select_override=0, unique_id=None, **kwargs):
         """Route the selected input to output.
 
-        Selection priority:
-        1. select_override > 0 -> use input_{override:02d} if connected
-        2. select_override == 0 or override target not connected -> use dropdown
-        3. Dropdown target not connected -> first connected input (fallback)
-        4. Nothing connected -> (None, 0)
+        Resolution chain:
+        1. select_override < 0 → negative index (-1=last, -2=second-to-last)
+        2. select_override > 0 → try that input by position
+        3. If select is an input name (not "(none)") → try dropdown selection
+        4. All missed or skipped → apply mode fallback
+
+        When select is "(none)", step 3 is skipped entirely — the user is
+        opting out of dropdown participation ("let the mode decide").
         """
         # Build dict of connected (non-None) inputs with their indices
-        # Dynamic: iterates all input_XX keys from kwargs, not a hardcoded range
         connected = {}
         for key, value in kwargs.items():
             m = self._INPUT_RE.match(key)
@@ -134,34 +170,104 @@ class DazzleSwitch:
             _logger.debug(f"[{unique_id}] No inputs connected, returning None")
             return (None, 0)
 
-        # Priority 1: INT override
+        # Is the dropdown participating in the resolution chain?
+        dropdown_active = select not in (self.NONE_SELECTION, self.NO_CONNECTIONS)
+
+        # Resolve negative override to Nth-from-last connected input
+        # -1 = last connected, -2 = second-to-last, etc.
+        if select_override < 0:
+            sorted_connected = sorted(connected.keys())
+            neg_idx = abs(select_override)
+            if neg_idx <= len(sorted_connected):
+                resolved_key = sorted_connected[-neg_idx]
+                value, idx = connected[resolved_key]
+                _logger.debug(
+                    f"[{unique_id}] Negative override {select_override} "
+                    f"resolved to {resolved_key} (index {idx})"
+                )
+                return (value, idx)
+            _logger.debug(
+                f"[{unique_id}] Negative override {select_override} out of range "
+                f"({len(sorted_connected)} connected), falling through"
+            )
+            # Fall through to dropdown / mode like a positive miss
+
+        # Step 1: Try override (positive)
         if select_override > 0:
             override_key = f"input_{select_override:02d}"
             if override_key in connected:
                 value, idx = connected[override_key]
                 _logger.debug(f"[{unique_id}] Override selected {override_key} (index {idx})")
                 return (value, idx)
+            if dropdown_active:
+                _logger.debug(f"[{unique_id}] Override {override_key} unavailable, trying dropdown")
             else:
-                _logger.debug(
-                    f"[{unique_id}] Override {select_override} not connected, "
-                    f"falling back to dropdown"
-                )
+                _logger.debug(f"[{unique_id}] Override {override_key} unavailable, applying {mode}")
 
-        # Priority 2: Dropdown selection
-        # The JS sends the internal input name (e.g., "input_01") via the name map
-        if select in connected:
+        # Step 2: Dropdown selection (skipped when select is "(none)")
+        if dropdown_active and select in connected:
             value, idx = connected[select]
             _logger.debug(f"[{unique_id}] Dropdown selected {select} (index {idx})")
             return (value, idx)
 
-        # Priority 3: Fallback to first connected input
-        first_key = next(iter(connected))
-        value, idx = connected[first_key]
+        # "Requested" for sequential scan position:
+        # override key if set, dropdown value if active, else None
+        if select_override > 0:
+            requested = f"input_{select_override:02d}"
+        elif select_override < 0:
+            # Negative override missed — no meaningful position for sequential
+            requested = None
+        elif dropdown_active:
+            requested = select
+        else:
+            requested = None
+
+        # Step 3: Apply mode fallback
         _logger.debug(
-            f"[{unique_id}] Dropdown target '{select}' not connected, "
-            f"falling back to {first_key} (index {idx})"
+            f"[{unique_id}] Requested '{requested}' unavailable, "
+            f"applying {mode} fallback"
         )
-        return (value, idx)
+
+        if mode == "strict":
+            _logger.debug(f"[{unique_id}] Strict mode: no fallback")
+            return (None, 0)
+
+        if mode == "priority":
+            # First non-None by slot position (top to bottom)
+            for key in sorted(connected.keys()):
+                value, idx = connected[key]
+                _logger.debug(f"[{unique_id}] Priority fallback: {key} (index {idx})")
+                return (value, idx)
+            return (None, 0)
+
+        if mode == "sequential":
+            # Build full slot range including gaps (disconnected slots)
+            # ComfyUI omits disconnected inputs from kwargs, so we reconstruct
+            # the complete range from max(connected, requested) slot numbers
+            all_slots = self._build_full_slot_range(connected, requested)
+            if requested is not None and requested in all_slots:
+                start_pos = all_slots.index(requested)
+            else:
+                start_pos = 0
+            # When requested is None (no dropdown, no override), scan from top
+            # including position 0; otherwise skip the requested position
+            start_offset = 0 if requested is None else 1
+            for i in range(start_offset, len(all_slots)):
+                candidate = all_slots[(start_pos + i) % len(all_slots)]
+                if candidate in connected:
+                    value, idx = connected[candidate]
+                    _logger.debug(
+                        f"[{unique_id}] Sequential fallback: {candidate} (index {idx})"
+                    )
+                    return (value, idx)
+            return (None, 0)
+
+        # Unknown mode — treat as priority
+        _logger.warning(f"[{unique_id}] Unknown mode '{mode}', using priority")
+        for key in sorted(connected.keys()):
+            value, idx = connected[key]
+            return (value, idx)
+        return (None, 0)
 
 
 # ComfyUI registration

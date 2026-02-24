@@ -24,6 +24,8 @@ const MIN_INPUT_SLOTS = 3;
 const STABILIZE_DEBOUNCE_MS = 64;
 const TYPE_WALK_MAX_DEPTH = 10;
 const INPUT_SLOT_RE = /^input_(\d{2})$/;
+const NONE_SELECTION = '(none)';
+const NO_CONNECTIONS = '(none connected)';
 
 // ─── Dynamic Import ──────────────────────────────────────────────────────────
 
@@ -370,9 +372,11 @@ function buildConnectedInputInfo(node) {
  * Update the select dropdown widget with current connected input names.
  *
  * Selection preservation strategy:
+ * - "(none)" is always the first option when inputs are connected
+ *   (user selects this to skip dropdown and let mode decide)
  * - If the current selection is still connected: keep it
  * - If the current selection was disconnected but others remain: keep it
- *   (user is likely re-wiring; Python falls back to first connected at execution)
+ *   (user is likely re-wiring; Python falls back per mode at execution)
  * - If nothing is connected: show "(none connected)"
  * - Only auto-select on first connection (from "(none connected)" state)
  *
@@ -388,24 +392,28 @@ function updateSelectWidget(node) {
     node._dsNameMap = nameMap;
 
     if (labels.length === 0) {
-        selectWidget.options.values = ['(none connected)'];
-        selectWidget.value = '(none connected)';
+        selectWidget.options.values = [NO_CONNECTIONS];
+        selectWidget.value = NO_CONNECTIONS;
         return;
     }
 
     const previousValue = selectWidget.value;
-    selectWidget.options.values = labels;
+    // Always include (none) as the first option — lets user opt out of dropdown
+    selectWidget.options.values = [NONE_SELECTION, ...labels];
 
-    if (labels.includes(previousValue)) {
+    if (previousValue === NONE_SELECTION) {
+        // User explicitly chose (none) — keep it
+        selectWidget.value = NONE_SELECTION;
+    } else if (labels.includes(previousValue)) {
         // Current selection is still connected — keep it
         selectWidget.value = previousValue;
-    } else if (previousValue === '(none connected)') {
+    } else if (previousValue === NO_CONNECTIONS) {
         // First connection — auto-select it
         selectWidget.value = labels[0];
     }
     // Otherwise: user's selected input was disconnected but others remain.
     // Keep the widget value as-is (preserves user intent during re-wiring).
-    // Python switch() will fall back to first connected at execution time.
+    // Python switch() will fall back per mode at execution time.
 }
 
 // ─── Stabilize Cycle ─────────────────────────────────────────────────────────
@@ -448,6 +456,9 @@ function stabilize(node) {
 /** Semi-transparent background tint for the active (selected) input slot. */
 const ACTIVE_SLOT_TINT = "rgba(91, 189, 91, 0.15)";
 
+/** Opacity multiplier for dimming select_override widget when value is 0. */
+const DISABLED_WIDGET_ALPHA = 0.35;
+
 /**
  * Find the slot index of the currently selected input.
  *
@@ -456,7 +467,7 @@ const ACTIVE_SLOT_TINT = "rgba(91, 189, 91, 0.15)";
  */
 function getSelectedSlotIndex(node) {
     const selectWidget = node.widgets?.find(w => w.name === 'select');
-    if (!selectWidget || selectWidget.value === '(none connected)') return -1;
+    if (!selectWidget || selectWidget.value === NO_CONNECTIONS || selectWidget.value === NONE_SELECTION) return -1;
 
     const nameMap = node._dsNameMap || {};
     const internalName = nameMap[selectWidget.value] || selectWidget.value;
@@ -467,6 +478,106 @@ function getSelectedSlotIndex(node) {
     }
     return -1;
 }
+
+/**
+ * Dim select_override widget when its value is 0 (override inactive).
+ *
+ * Provides a custom draw method that renders the widget identically to
+ * ComfyUI's built-in number widget (capsule background, arrow buttons,
+ * label + value text) but with reduced alpha when value is 0.
+ *
+ * Unlike using widget.disabled (which hides arrows and outline entirely),
+ * this renders everything — just dimmer — so the user can see it's a
+ * real widget they can interact with.
+ *
+ * Rendering matches ComfyUI frontend's BaseSteppedWidget:
+ * - drawWidgetShape: capsule background with rounded corners
+ * - drawArrowButtons: left/right triangles for increment/decrement
+ * - drawTruncatingText: label (left) + value (right)
+ *
+ * @param {object} node - ComfyUI node
+ */
+function installOverrideDim(node) {
+    const overrideWidget = node.widgets?.find(w => w.name === 'select_override');
+    if (!overrideWidget) return;
+
+    // Only install once
+    if (overrideWidget._dsDimInstalled) return;
+    overrideWidget._dsDimInstalled = true;
+
+    // Constants matching ComfyUI's BaseWidget layout
+    const MARGIN = 15;
+    const ARROW_MARGIN = 6;
+    const ARROW_WIDTH = 6;
+
+    overrideWidget.draw = function(ctx, nodeRef, width, y, height, lowQuality) {
+        const dim = (this.value === 0);
+        const showText = !lowQuality;
+        const savedAlpha = ctx.globalAlpha;
+
+        if (dim) ctx.globalAlpha *= DISABLED_WIDGET_ALPHA;
+
+        // ── Capsule background (BaseWidget.drawWidgetShape) ──
+        const outlineColor = this.outline_color
+            || LiteGraph.WIDGET_OUTLINE_COLOR || "#666";
+        ctx.fillStyle = this.background_color || "#222";
+        ctx.beginPath();
+        if (showText) {
+            ctx.roundRect(MARGIN, y, width - MARGIN * 2, height, [height * 0.5]);
+        } else {
+            ctx.rect(MARGIN, y, width - MARGIN * 2, height);
+        }
+        ctx.fill();
+        if (showText) {
+            ctx.strokeStyle = outlineColor;
+            ctx.stroke();
+        }
+
+        if (showText) {
+            const textColor = this.text_color || "#DDD";
+            const dimTextColor = this.disabledTextColor || "#555";
+
+            // ── Arrow buttons (BaseSteppedWidget.drawArrowButtons) ──
+            const tipX = MARGIN + ARROW_MARGIN;
+            const innerX = tipX + ARROW_WIDTH;
+            const minVal = this.options?.min ?? -Infinity;
+            const maxVal = this.options?.max ?? Infinity;
+
+            // Left arrow
+            ctx.fillStyle = (this.value > minVal) ? textColor : dimTextColor;
+            ctx.beginPath();
+            ctx.moveTo(innerX, y + 5);
+            ctx.lineTo(tipX, y + height * 0.5);
+            ctx.lineTo(innerX, y + height - 5);
+            ctx.fill();
+
+            // Right arrow
+            ctx.fillStyle = (this.value < maxVal) ? textColor : dimTextColor;
+            ctx.beginPath();
+            ctx.moveTo(width - innerX, y + 5);
+            ctx.lineTo(width - tipX, y + height * 0.5);
+            ctx.lineTo(width - innerX, y + height - 5);
+            ctx.fill();
+
+            // ── Label + Value text ──
+            const labelX = MARGIN * 2 + 5;
+            const valueX = width - MARGIN * 2 - 10;
+
+            // Label (left-aligned, secondary color)
+            ctx.fillStyle = this.secondary_text_color || "#AAA";
+            ctx.textAlign = "left";
+            ctx.fillText(this.label || this.name, labelX, y + height * 0.7);
+
+            // Value (right-aligned, primary color)
+            ctx.fillStyle = textColor;
+            ctx.textAlign = "right";
+            ctx.fillText(String(this.value), valueX, y + height * 0.7);
+        }
+
+        ctx.globalAlpha = savedAlpha;
+    };
+}
+
 
 /**
  * Draw a subtle border highlight on the selected input slot.
@@ -615,6 +726,10 @@ function setupDazzleSwitchNode(node, app) {
 
     // Override serializeValue to send internal names to Python
     selectWidget.serializeValue = function() {
+        // Special values pass through as-is
+        if (this.value === NONE_SELECTION || this.value === NO_CONNECTIONS) {
+            return this.value;
+        }
         const nameMap = node._dsNameMap || {};
         // Convert display label to internal name for Python
         return nameMap[this.value] || this.value;
@@ -658,6 +773,9 @@ function setupDazzleSwitchNode(node, app) {
         updateOutputType(node, detectedType);
         node.setDirtyCanvas(true, true);
     };
+
+    // Dim select_override widget when value is 0 (visually indicates "disabled")
+    installOverrideDim(node);
 
     // Hook into onDrawForeground for active slot highlight
     const origOnDrawForeground = node.onDrawForeground;
@@ -726,5 +844,5 @@ function setupDazzleSwitchNode(node, app) {
         }
     });
 
-    console.log("[DazzleSwitch] JavaScript extension loaded (Phase 4: slot reordering)");
+    console.log("[DazzleSwitch] JavaScript extension loaded (Phase 4: fallback modes)");
 })();

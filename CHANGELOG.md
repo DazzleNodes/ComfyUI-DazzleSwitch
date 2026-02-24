@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0-alpha] - 2026-02-24
+
+### Added
+- Fallback modes: `priority` (rgthree-style top-down), `strict` (no fallback), `sequential` (next slot with wrap-around)
+- `(none)` dropdown option: skip dropdown step entirely, let mode decide (6-behavior matrix with modes)
+- Negative indexing: `select_override = -1` selects last connected input, `-2` second-to-last, etc.
+- Widget dimming: `select_override` visually dims at 35% opacity when value is 0 (inactive)
+- Custom draw method for select_override matching ComfyUI's BaseSteppedWidget rendering
+- 31 new tests: 12 for (none)+mode matrix, 8 for negative indexing, 11 for sequential gap-awareness (86 total)
+- README: resolution chain docs, fallback mode table, (none) option behavior matrix
+
+### Changed
+- `select_override` range expanded from `0..50` to `-50..50` for negative indexing
+- Resolution chain: override (negative → positive) → dropdown (unless "(none)") → mode fallback
+- Version bump: 0.3.1 → 0.4.0 across version.py, pyproject.toml, setup.py
+
+### Fixed
+- Sequential mode: correctly scans forward through disconnected slot gaps (ComfyUI omits disconnected inputs from kwargs)
+- `_build_full_slot_range()` reconstructs complete slot topology so sequential wrap-around respects physical slot positions
+
+### Technical Details
+- `dropdown_active` flag skips dropdown step when `(none)` selected (clean separation of concerns)
+- Negative override resolved against `sorted(connected.keys())` before positive check
+- `_build_full_slot_range()`: builds `[input_01..input_N]` from max(connected, requested) for gap-aware sequential scan
+- `installOverrideDim()`: assigns `.draw` method with alpha control, matches capsule + arrows + text rendering
+- `DISABLED_WIDGET_ALPHA = 0.35` for visible-but-dimmed appearance (arrows and value still shown)
+
 ## [0.3.1-alpha] - 2026-02-23
 
 ### Added
